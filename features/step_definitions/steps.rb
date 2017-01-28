@@ -1,63 +1,56 @@
 Given(/^I am on the Zillow Help Center page$/) do
-  visit 'https://zillow.zendesk.com/hc/en-us'
+  @start_page = HelpCenterPage.new
 end
 
 Then(/^I will click the Sign In link$/) do
-  page.find(:css, "a.login").click
+  @start_page.go_login
 end
 
 Then(/^I will fill in valid credentials and submit$/) do
-  email_field = page.find(:css, "input#email")
-  password_field = page.find(:css, "input#password")
-  email_field.set($login_email)
-  password_field.set($login_password)
-  page.find(:css, "input[type='submit']").click
+  @login_page = LoginPage.new
+  @login_page.fill_email_field($login_email)
+  @login_page.fill_password_field($login_password)
+  @login_page.submit_form
 end
 
 Then(/^I will go to the Homes section$/) do
-  page.find("div.nav-links a", :text => "Homes").click
+  @start_page.go_homes
+  @homes_page = HomesPage.new
 end
 
-Then(/^I should see "([^"]*)" to verify I am logged in$/) do |expectedText|
-  expect(page).to have_content(expectedText)
+Then(/^I should see "([^"]*)" to verify I am logged in$/) do |expected_text|
+  @homes_page.verify_contains_text(expected_text)
 end
 
 Given(/^I am on the Homes section and see the search bar$/) do
-  expect(page).to have_selector(:css, "input#citystatezip")
+  @homes_page.check_searchbar_exists
 end
 
 When(/^I search for a house in "([^"]*)" with three filters$/) do |search_text|
   $bedrooms_min = 4
   $bathrooms_min = 3
 
-  search_field = page.find(:css, "input#citystatezip")
-  search_field.set(search_text)
+  @homes_page.fill_search_field(search_text)
   # Show foreclosures only
-  page.find(:css, "div#listings-menu-label").trigger('click')
-  page.find(:css, "input#fs-listings-input").trigger('click')
-  page.find(:css, "a#beds-menu-label").trigger('click')
+  @homes_page.choose_foreclosures_only
+
   # Filter by bedrooms min
-  page.find(:css, "ul#bed-options li[data-value='%s,']" % $bedrooms_min).trigger('click')
-  page.find(:css, "a#type-menu-label").trigger('click')
+  @homes_page.filter_bedrooms_min($bedrooms_min)
+
   # Unselect Houses and Lots/Land from selection
-  page.find(:css, "input#hometype-sf-top-filters-input").trigger('click')
-  page.find(:css, "input#hometype-land-top-filters-input").trigger('click')
+  @homes_page.unselect_houses_lots
+
   # Filter by bathrooms min
-  page.find(:css, "fieldset[class*='more-menu'] a.menu-label").trigger('click')
-  page.find(:css, "span#baths-readout").trigger('click')
-  page.find(:css, "ul#bath-options li[data-value='%s.0,']" % $bathrooms_min).trigger('click')
-  page.find(:css, "a#filterSearchButton").trigger('click')
-  page.find(:css, "button[class*='zsg-search-button'][type='submit']").trigger('click')
+  @homes_page.filter_bathrooms_min($bathrooms_min)
+  @homes_page.more_filter_done
+
+  @homes_page.click_search_submit
 end
 
 Given(/^I have search results$/) do
-  expect(page).to have_selector(:css, "div#map-result-count-message h2")
+  @homes_page.verify_results_exist
 end
 
 Then(/^each house should verify search criteria$/) do
-  page.all(:css, "ul:first-of-type.photo-cards div.zsg-photo-card-caption").each do |listing|
-    within listing do
-      expect(page.find(:css, "span.zsg-photo-card-info").text).to match(/Foreclosure.*? [#{$bedrooms_min}-9][0-9]* bds.*? [#{$bathrooms_min}-9][0-9]* ba/)
-    end
-  end
+  @homes_page.verify_results_foreclosures($bedrooms_min, $bathrooms_min)
 end
